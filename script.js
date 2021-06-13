@@ -206,23 +206,26 @@ for (let i = 0; i < 4; i++) {
     const vertLength = vertex.distance()
     const sag = vertLength * 0.1
     const distFromCenter = midpoint.length()
-    quadrants.push({ends, shape, vertex, midpoint, vertLength, sag, distFromCenter, angle})
+    const parralelLine = new THREE.Line3(centeredCornerPoints[(i + 2) % 4], centeredCornerPoints[(i + 3) % 4])
+    const perpendicularLine = new THREE.Line3(ends[0], centeredCornerPoints[(i + 3) % 4])
+    quadrants.push({ends, shape, vertex, midpoint, vertLength, sag, distFromCenter, angle, perpendicularLine, parralelLine})
 }
 
 
 console.log(quadrants)
 
 const shiftedPoints = centeredPoints.map((point, index) => {
-    const quadrant = quadrants.find(quad => quad.shape.closestPointToPoint(point, new THREE.Vector3()).distanceTo(point) < 0.005)
+    const quadrant = quadrants.find(quad => quad.shape.closestPointToPoint(point, false, new THREE.Vector3()).distanceTo(point) < 0.005)
     if (quadrant === undefined) {
         return point
     }
-    const angleFactor = Math.min((quadrant.midpoint.angleTo(point) / (quadrant.angle / 2)) ** 2, 1)
+    const angleFactor = (quadrant.midpoint.angleTo(point) / (quadrant.angle / 2)) ** 2
     const scaleFactor = 1 - (quadrant.sag * (1 - angleFactor) / point.length())
     if (index % 5 ===0) {
         console.log(angleFactor, scaleFactor)
     }
-    return new THREE.Vector3().copy(point).multiplyScalar(scaleFactor)
+    const distFactor = 1 - point.distanceTo(quadrant.perpendicularLine.closestPointToPoint(point, false, new THREE.Vector3())) / (quadrant.vertex.length() / 2)
+    return new THREE.Vector3().lerpVectors(point, quadrant.parralelLine.closestPointToPoint(point, false, new THREE.Vector3()), distFactor)
 })
 
 // console.log(shiftedPoints)
