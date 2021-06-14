@@ -61,16 +61,31 @@ const adjustedMidpoints = midpoints.map((vec, idx) => {
     return new THREE.Vector3().copy(vec).multiplyScalar(shrinkPercent)
 })
 
-const outerCurves = []
+const adjustedMidpointsGeometry = new THREE.BufferGeometry().setFromPoints(adjustedMidpoints)
+const adjustedMidCloud = new THREE.Points(
+    adjustedMidpointsGeometry,
+    new THREE.PointsMaterial({color: 0x00ff00, size: 0.25})
+)
 
-for (let i=0; i < 4; i++) {
-  const curve =  new THREE.QuadraticBezierCurve3(centeredCornerPoints[i], adjustedMidpoints[i], centeredCornerPoints[(i + 1) % 4])
-  outerCurves.push(curve)
-  const points = curve.getPoints(50)
-    const geometry = new THREE.BufferGeometry().setFromPoints(points)
-    const material = new THREE.LineBasicMaterial({color: 0x00ff00})
-    const curveObject = new THREE.Line(geometry, material)
-    scene.add(curveObject)
+scene.add(adjustedMidCloud)
+
+
+const findQuadratic = (point1, point2, point3) => {
+  const x = [point1[0], point2[0], point3[0]]
+  const y = [point1[2], point2[2], point3[2]]
+  const xMat = math.matrixFromColumns(math.square(x), x, [1, 1, 1])
+  return math.multiply(math.inv(xMat), y)
+}
+
+const getPointsFromQuadratic = (a, b, c, startX, endX, nPoints) => {
+  const step = (endX - startX) / nPoints
+  const points = []
+  for (let i=0; i <= nPoints; i++) {
+    const x = startX + i * step
+    const y = a * (x ** 2) + b * x + c
+    points.push([x, y])
+  }
+  return points
 }
 
 const lineToPoints = (line, numberOfPoints) => {
@@ -82,24 +97,59 @@ const lineToPoints = (line, numberOfPoints) => {
   return points
 }
 
-for (let i=0; i < 2; i++) {
-  const centerLine = new THREE.QuadraticBezierCurve3(adjustedMidpoints[i + 1], centerPoint, adjustedMidpoints[(i + 3) % 4])
-  const centerPoints = centerLine.getPoints(10)
-  const centerGeometry = new THREE.BufferGeometry().setFromPoints(centerPoints)
-  const material = new THREE.LineBasicMaterial({color: 0xff0000})
-  const curveObject = new THREE.Line(centerGeometry, material)
-  scene.add(curveObject)
-  const startPoints = outerCurves[i].getPoints(10)
-  const endPoints = outerCurves[i + 2].getPoints(10).reverse()
-  for (let j=0; j < startPoints.length; j++) {
-    const curve = new THREE.QuadraticBezierCurve3(startPoints[j], centerPoints[j], endPoints[j])
-    const points = curve.getPoints(50)
-    const geometry = new THREE.BufferGeometry().setFromPoints(points)
-    const material = new THREE.LineBasicMaterial({color: 0xffffff})
-    const curveObject = new THREE.Line(geometry, material)
-    scene.add(curveObject)
-  }
-}
+const testPoints = [centeredCornerPoints[0], adjustedMidpoints[0], centeredCornerPoints[1]].map(point => [point.x, point.y, point.z])
+console.log(testPoints)
+const quad = findQuadratic(...testPoints)
+console.log(quad)
+const outPoints2D = getPointsFromQuadratic(...quad, testPoints[0][0], testPoints[2][0], 10)
+
+console.log(outPoints2D)
+
+const testLine = new THREE.Line3(centeredCornerPoints[0], centeredCornerPoints[1])
+const testLinePoints = lineToPoints(testLine, 10)
+
+const outPoints3D = outPoints2D.map((point2d, idx) => new THREE.Vector3(point2d[0], testLinePoints[idx].y, point2d[1]))
+
+console.log(outPoints3D)
+
+const testGeom = new THREE.BufferGeometry().setFromPoints(outPoints3D)
+const testMaterial = new THREE.LineBasicMaterial({color: 0xffffff})
+const testObject = new THREE.Line(testGeom, testMaterial)
+scene.add(testObject)
+
+
+
+
+// for (let i=0; i < 4; i++) {
+//   const curve =  new THREE.QuadraticBezierCurve3(centeredCornerPoints[i], adjustedMidpoints[i], centeredCornerPoints[(i + 1) % 4])
+//   outerCurves.push(curve)
+//   const points = curve.getPoints(50)
+//     const geometry = new THREE.BufferGeometry().setFromPoints(points)
+//     const material = new THREE.LineBasicMaterial({color: 0x00ff00})
+//     const curveObject = new THREE.Line(geometry, material)
+//     scene.add(curveObject)
+// }
+
+
+
+// for (let i=0; i < 2; i++) {
+//   const centerLine = new THREE.QuadraticBezierCurve3(adjustedMidpoints[i + 1], centerPoint, adjustedMidpoints[(i + 3) % 4])
+//   const centerPoints = centerLine.getPoints(10)
+//   const centerGeometry = new THREE.BufferGeometry().setFromPoints(centerPoints)
+//   const material = new THREE.LineBasicMaterial({color: 0xff0000})
+//   const curveObject = new THREE.Line(centerGeometry, material)
+//   scene.add(curveObject)
+//   const startPoints = outerCurves[i].getPoints(10)
+//   const endPoints = outerCurves[i + 2].getPoints(10).reverse()
+//   for (let j=0; j < startPoints.length; j++) {
+//     const curve = new THREE.QuadraticBezierCurve3(startPoints[j], centerPoints[j], endPoints[j])
+//     const points = curve.getPoints(50)
+//     const geometry = new THREE.BufferGeometry().setFromPoints(points)
+//     const material = new THREE.LineBasicMaterial({color: 0xffffff})
+//     const curveObject = new THREE.Line(geometry, material)
+//     scene.add(curveObject)
+//   }
+// }
 
 // const gui = new dat.GUI();
 // gui.add(mesh.material, "wireframe");
